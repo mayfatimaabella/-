@@ -30,3 +30,13 @@
   width: 32px;
   height: 32px;
 }
+
+.page-background{
+  --background: transparent;
+  background: linear-gradient(to bottom, #3170AB, #4B6CA8, #1C4094);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  color: #fff;
+}

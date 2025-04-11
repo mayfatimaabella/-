@@ -1,0 +1,43 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Settings</ion-title>
+    <ion-button (click)="goToHome()">
+      <ion-icon name="arrow-back-outline"></ion-icon>
+    </ion-button>
+  </ion-toolbar>
+  
+</ion-header>
+
+<ion-content>
+
+  <ion-item>
+    <ion-label>Temperature</ion-label>
+    <ion-segment [value]="units === 'metric' ? 'celsius' : 'fahrenheit'" (ionChange)="toggleUnits($event)">
+      <ion-segment-button value="fahrenheit">
+        <ion-label>°F</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="celsius">
+        <ion-label>°C</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </ion-item>
+  
+    <ion-item>
+      <ion-label>Theme</ion-label>
+      <ion-segment [value]="paletteToggle ? 'dark' : 'light'" (ionChange)="themeChanged($event)">
+        <ion-segment-button value="light">
+          <ion-label>Light</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="dark">
+          <ion-label>Dark</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </ion-item>
+
+    <ion-item>
+      <ion-toggle [(ngModel)]="showAlerts" (ionChange)="toggleAlerts()" justify="space-between">
+        Enable Severe Weather Alerts
+      </ion-toggle>
+    </ion-item>
+
+</ion-content>

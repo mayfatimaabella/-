@@ -1,11 +1,25 @@
 import { HttpClient } from '@angular/common/http';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { environment } from 'src/environments/environment';
 import { Geolocation } from '@capacitor/geolocation';
 import { AlertController } from '@ionic/angular';
+import { WeatherService } from '../service/weather/weather.service';
+import { Preferences } from '@capacitor/preferences';
+import { SqliteService } from '../service/sqlite/sqlite.service';
+import { Router } from '@angular/router';
+
 
 const API_URL = environment.API_URL;
 const API_KEY = environment.API_KEY;
+
+interface WeatherAlert {
+  sender_name: string;
+  event: string;
+  start: number;
+  end: number;
+  description: string;
+  tags: string[];
+}
 
 interface WeatherData {
   current: {
@@ -36,14 +50,7 @@ interface WeatherData {
       icon: string;
     }[];
   }[];
-  alerts?: {
-    sender_name: string,
-    event: string,
-    start: number,
-    end: number, 
-    description: string, 
-    tags: string[];
-  }[];
+  alerts?: WeatherAlert[];
 }
 
 @Component({
@@ -52,7 +59,8 @@ interface WeatherData {
   styleUrls: ['home.page.scss'],
   standalone: false,
 })
-export class HomePage {
+export class HomePage implements OnInit {
+  weatherData: WeatherData | undefined;
   currentWeather: WeatherData['current'] | undefined;
   dailyForecast: WeatherData['daily'] | undefined;
   hourlyForecast: WeatherData['hourly'] | undefined;
@@ -60,11 +68,28 @@ export class HomePage {
   latitude: number | undefined;
   longitude: number | undefined;
   locationName: string = '';
-  alerts: { sender_name: string; event: string; start: number; end: number; description: string; tags: string[]; }[] | undefined;
+  lastAlertEvent: string = '';
 
-  constructor(public httpClient: HttpClient, public alertController: AlertController) {
+  constructor(
+    private weatherService: WeatherService,
+    public alertController: AlertController,
+    public httpClient: HttpClient,
+    private sqliteService: SqliteService,
+    private router: Router,) {
+    this.getLocation();}
+
+  async ngOnInit() {
+    const lastLocation = await Preferences.get({ key: 'lastLocation' });
+    const storedUnits = await Preferences.get({ key: 'units' });
+
+    if (lastLocation.value) this.locationName = lastLocation.value;
+    if (storedUnits.value) this.units = storedUnits.value;
     this.getLocation();
-  } 
+  }
+
+  async savePreferences(){
+    await Preferences.set({ key: 'lastLocation', value: this.locationName });
+  }
 
   async getLocation() {
     try {
@@ -84,28 +109,30 @@ export class HomePage {
 
   getWeatherData() {
     if (this.latitude && this.longitude) {
-      this.httpClient
-        .get<WeatherData>(`${API_URL}/onecall?lat=${this.latitude}&lon=${this.longitude}&appid=${API_KEY}&units=${this.units}`)
-        .subscribe((results) => {
+      this.weatherService.getWeatherData(this.latitude, this.longitude, this.units)
+        .subscribe(async (results: any) => {
           console.log(results);
+          this.weatherData = results;
           this.currentWeather = results.current;
           this.dailyForecast = results.daily.slice(1, 6);
           this.hourlyForecast = results.hourly.slice(0, 24);
-          this.alerts = results.alerts;
-        });
-    }
-  }
 
-  async getCityName() {
-    if (this.latitude && this.longitude) {
-      const rvrsgeoCodingUrl = `http://api.openweathermap.org/geo/1.0/reverse?lat=${this.latitude}&lon=${this.longitude}&limit=1&appid=${API_KEY}`;
-      this.httpClient.get<any>(rvrsgeoCodingUrl).subscribe((results) => {
-        if (results && results.length > 0) {
-          this.locationName = results[0].name;
-        } else {
-          this.locationName = 'Location Not Found';
-        }
-      });
+          await this.sqliteService.weatherCache(this.locationName || 'Unknown', results);
+
+        }, async (error) => {
+          console.error('API Error. Loading cached data...', error);
+
+          const cached = await this.sqliteService.getCachedWeather(this.locationName || 'Unknown');
+          if (cached) {
+            this.weatherData = cached;
+            this.currentWeather = cached.current;
+            this.dailyForecast = cached.daily.slice(1,6);
+            this.hourlyForecast = cached.hourly.slice(0,24);
+            this.presentAlert('Offline Mode', 'Showing cached weather data.');
+          } else {
+            this.presentAlert('Error', 'No weather data available offline.');
+          }
+        });
     }
   }
 
@@ -144,19 +171,32 @@ export class HomePage {
     await alert.present();
   }
 
-  async getCoordinatesFromLocation(location: string) {
-    const geocodingUrl = `http://api.openweathermap.org/geo/1.0/direct?q=${location}&limit=1&appid=${API_KEY}`;
-    this.httpClient.get<any>(geocodingUrl).subscribe((results) => {
+async getCityName() {
+  if (this.latitude && this.longitude) {
+    this.weatherService.getCityName(this.latitude, this.longitude).subscribe((results) => {
       if (results && results.length > 0) {
-        this.latitude = results[0].lat;
-        this.longitude = results[0].lon;
-        this.getWeatherData();
         this.locationName = results[0].name;
+        this.savePreferences();
       } else {
-        this.presentAlert('Location not found', 'Cant find specified location.');
+        this.locationName = 'Location Not Found';
       }
     });
   }
+}
+
+async getCoordinatesFromLocation(location: string) {
+  this.weatherService.getCoordinatesFromLocation(location).subscribe((results) => {
+    if (results && results.length > 0) {
+      this.latitude = results[0].lat;
+      this.longitude = results[0].lon;
+      this.getWeatherData();
+      this.locationName = results[0].name;
+      this.savePreferences();
+    } else {
+      this.presentAlert('Location not found', 'Can\'t find specified location.');
+    }
+  });
+}
 
   getWeatherIcon(iconCode: string): string {
     return `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
@@ -172,12 +212,17 @@ export class HomePage {
     return date.toLocaleDateString();
   }
 
-  toggleUnits() {
-    this.units = this.units === 'metric' ? 'imperial' : 'metric';
-    this.getWeatherData();
-  }
-
   getTempUnit(): string {
     return this.units === 'metric' ? '°C' : '°F';
   }
+
+  getWeatherAndLocation(){
+    this.getWeatherData();
+    this.getCityName();
+  }
+
+  goToSettings(){
+    this.router.navigate(['/settings']);
+  }
+
 }
