@@ -1,7 +1,5 @@
 import { Component, OnInit } from '@angular/core';
 import { Preferences } from '@capacitor/preferences';
-import { WeatherService } from '../service/weather/weather.service';
-import { SqliteService } from '../service/sqlite/sqlite.service';
 import { NavController } from '@ionic/angular';
 import { l } from '@angular/core/navigation_types.d-u4EOrrdZ';
 
@@ -18,8 +16,6 @@ export class SettingsPage implements OnInit {
   showAlerts: boolean = true;
 
   constructor(
-    private weatherService: WeatherService,
-    private sqliteService: SqliteService,
     private navController: NavController,
     
   ) { }

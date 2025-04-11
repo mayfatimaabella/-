@@ -84,6 +84,7 @@ export class HomePage implements OnInit {
 
     if (lastLocation.value) this.locationName = lastLocation.value;
     if (storedUnits.value) this.units = storedUnits.value;
+    this.loadPreferences();
     this.getLocation();
   }
 
@@ -224,5 +225,21 @@ async getCoordinatesFromLocation(location: string) {
   goToSettings(){
     this.router.navigate(['/settings']);
   }
+
+  ionViewWillEnter() {
+    this.loadPreferences();
+  }
+
+  async loadPreferences() {
+    const lastLocation = await Preferences.get({ key: 'lastLocation' });
+    const storedUnits = await Preferences.get({ key: 'units' });
+  
+    if (lastLocation.value) this.locationName = lastLocation.value;
+    if (storedUnits.value) this.units = storedUnits.value;
+  
+    this.getWeatherData();
+    this.getCityName();
+  }
+  
 
 }
