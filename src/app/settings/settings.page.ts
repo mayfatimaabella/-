@@ -38,7 +38,7 @@ export class SettingsPage implements OnInit {
   }
 
   toggleUnits(event: any){
-    this.units = this.units === 'fahrenheit' ? 'imperial' : 'imperial';
+    this.units = this.units === 'metric' ? 'imperial' : 'metric';
     this.savePreferences();
   }
 
