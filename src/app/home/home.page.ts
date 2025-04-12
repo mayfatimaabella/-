@@ -7,6 +7,7 @@ import { WeatherService } from '../service/weather/weather.service';
 import { Preferences } from '@capacitor/preferences';
 import { SqliteService } from '../service/sqlite/sqlite.service';
 import { Router } from '@angular/router';
+import { SwiperModule } from 'swiper/types';
 
 
 const API_URL = environment.API_URL;
@@ -69,6 +70,8 @@ export class HomePage implements OnInit {
   longitude: number | undefined;
   locationName: string = '';
   lastAlertEvent: string = '';
+  showAlerts: boolean = true; 
+
 
   constructor(
     private weatherService: WeatherService,
@@ -205,13 +208,21 @@ async getCoordinatesFromLocation(location: string) {
 
   timeStamp(timestamp: number): string {
     const date = new Date(timestamp * 1000);
-    return date.toLocaleTimeString();
+    return date.toLocaleTimeString([], { hour: '2-digit', minute:'2-digit'});
   }
 
   dateFormat(timestamp: number): string {
     const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString();
+    const options: Intl.DateTimeFormatOptions = { 
+      month: 'long', 
+      day: 'numeric', 
+      weekday: 'long'
+    };
+    const formattedDate = date.toLocaleDateString(undefined, options);
+    const [weekday, monthDay] = formattedDate.split(', ');
+    return `<span>${monthDay}</span><br><span>${weekday}</span>`;
   }
+  
 
   getTempUnit(): string {
     return this.units === 'metric' ? '°C' : '°F';
@@ -233,9 +244,11 @@ async getCoordinatesFromLocation(location: string) {
   async loadPreferences() {
     const lastLocation = await Preferences.get({ key: 'lastLocation' });
     const storedUnits = await Preferences.get({ key: 'units' });
+    const alertPref = await Preferences.get({ key: 'showAlerts' });
   
     if (lastLocation.value) this.locationName = lastLocation.value;
     if (storedUnits.value) this.units = storedUnits.value;
+    if (alertPref.value) this.showAlerts = JSON.parse(alertPref.value);
   
     this.getWeatherData();
     this.getCityName();

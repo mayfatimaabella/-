@@ -1,0 +1,23 @@
+:host {
+  --ion-text-color: black;
+}
+
+:host(.ion-palette-dark) {
+  --ion-text-color: white;
+}
+
+ion-card, ion-label, h2, p {
+  color: var(--ion-text-color);
+}
+
+ion-card-header {
+  --color: var(--ion-text-color);
+}
+
+ion-item {
+  --color: var(--ion-text-color);
+}
+
+ion-label {
+  color: var(--ion-text-color);
+}
